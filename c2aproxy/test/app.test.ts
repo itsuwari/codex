@@ -116,3 +116,4 @@ describe('c2aproxy /v1/models', () => {
     assert.strictEqual(res.status, 401);
   });
 });
+

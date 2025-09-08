@@ -24,6 +24,7 @@ export type OpenAIContentPart =
   | OpenAIContentPartImageUrl
   | OpenAIContentPartImageB64;
 
+
 export interface OpenAIMessage {
   role: string;
   content: string | OpenAIContentPart[];
@@ -84,6 +85,7 @@ async function fetchImage(url: string, fetchImpl: typeof fetch): Promise<{ media
   return { mediaType, data: base64 };
 }
 
+
 async function convertPart(
   part: OpenAIContentPart,
   fetchImpl: typeof fetch,
@@ -98,6 +100,7 @@ async function convertPart(
       source: { type: 'base64', media_type: mediaType, data: part.image_base64.data },
     };
   }
+
   const url = part.image_url.url;
   const parsed = parseDataUrl(url);
   const { mediaType, data } = parsed ?? (await fetchImage(url, fetchImpl));

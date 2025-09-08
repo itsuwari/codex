@@ -169,6 +169,7 @@ async fn main() {
     let app = Router::new()
         .route("/v1/messages", post(post_messages))
         .route("/v1/models", get(get_models))
+
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
@@ -194,6 +195,7 @@ mod tests {
     use axum::http::header::AUTHORIZATION;
     use axum::response::IntoResponse;
     use axum::routing::get;
+
     use axum::routing::post;
     use codex_core::AuthManager;
     use codex_core::CodexAuth;
