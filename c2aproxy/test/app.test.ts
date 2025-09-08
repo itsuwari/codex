@@ -50,6 +50,37 @@ describe('c2aproxy /v1/messages', () => {
     assert.strictEqual(body.messages[0].content[0].source.data, img);
   });
 
+  it('translates raw base64 image parts', async () => {
+    const img = Buffer.from('raw').toString('base64');
+    let body: any = null;
+    const fetchMock = async (_url: string, opts: any) => {
+      body = JSON.parse(opts.body);
+      return { json: async () => ({}) } as any;
+    };
+    const app = createApp('Access Token', fetchMock as any);
+    const res = await request(app)
+      .post('/v1/messages')
+      .set('Authorization', 'Bearer Access Token')
+      .send({
+        model: 'test',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_base64',
+                image_base64: { data: img, media_type: 'image/png' }
+              }
+            ]
+          }
+        ]
+      });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.messages[0].content[0].type, 'image');
+    assert.strictEqual(body.messages[0].content[0].source.media_type, 'image/png');
+    assert.strictEqual(body.messages[0].content[0].source.data, img);
+  });
+
   it('rejects missing token', async () => {
     const app = createApp('Access Token');
     const res = await request(app)
@@ -67,3 +98,22 @@ describe('c2aproxy /v1/messages', () => {
     assert.strictEqual(res.status, 401);
   });
 });
+
+describe('c2aproxy /v1/models', () => {
+  it('returns model info when authorized', async () => {
+    const app = createApp('Access Token');
+    const res = await request(app)
+      .get('/v1/models')
+      .set('Authorization', 'Bearer Access Token');
+    assert.strictEqual(res.status, 200);
+    assert.ok(Array.isArray(res.body.data));
+    assert.strictEqual(res.body.data[0].context_length, 200000);
+  });
+
+  it('rejects missing token', async () => {
+    const app = createApp('Access Token');
+    const res = await request(app).get('/v1/models');
+    assert.strictEqual(res.status, 401);
+  });
+});
+

@@ -10,7 +10,20 @@ export interface OpenAIContentPartImageUrl {
   };
 }
 
-export type OpenAIContentPart = OpenAIContentPartText | OpenAIContentPartImageUrl;
+export interface OpenAIContentPartImageB64 {
+  type: 'image_base64';
+  image_base64: {
+    data: string;
+    media_type?: string;
+    mime_type?: string;
+  };
+}
+
+export type OpenAIContentPart =
+  | OpenAIContentPartText
+  | OpenAIContentPartImageUrl
+  | OpenAIContentPartImageB64;
+
 
 export interface OpenAIMessage {
   role: string;
@@ -72,10 +85,22 @@ async function fetchImage(url: string, fetchImpl: typeof fetch): Promise<{ media
   return { mediaType, data: base64 };
 }
 
-async function convertPart(part: OpenAIContentPart, fetchImpl: typeof fetch): Promise<AnthropicContentBlock> {
+
+async function convertPart(
+  part: OpenAIContentPart,
+  fetchImpl: typeof fetch,
+): Promise<AnthropicContentBlock> {
   if (part.type === 'text') {
     return { type: 'text', text: part.text };
   }
+  if (part.type === 'image_base64') {
+    const mediaType = part.image_base64.media_type ?? part.image_base64.mime_type ?? 'application/octet-stream';
+    return {
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: part.image_base64.data },
+    };
+  }
+
   const url = part.image_url.url;
   const parsed = parseDataUrl(url);
   const { mediaType, data } = parsed ?? (await fetchImage(url, fetchImpl));

@@ -34,5 +34,21 @@ export function createApp(
     }
   });
 
+  app.get('/v1/models', (req: Request, res: Response) => {
+    const auth = req.header('authorization');
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!expectedToken || token !== expectedToken) {
+      return res.sendStatus(401);
+    }
+
+    res.json({
+      data: [
+        { id: 'claude-3-haiku', context_length: 200000 },
+        { id: 'claude-3-sonnet', context_length: 200000 },
+        { id: 'claude-3-opus', context_length: 200000 },
+      ],
+    });
+  });
+
   return app;
 }

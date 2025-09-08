@@ -6,6 +6,7 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::AUTHORIZATION;
+use axum::routing::get;
 use axum::routing::post;
 use codex_core::AuthManager;
 use codex_protocol::mcp_protocol::AuthMode;
@@ -58,6 +59,17 @@ struct OpenAiResponse {
     choices: Vec<OpenAiChoice>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ModelInfo {
+    id: String,
+    context_length: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ModelsResponse {
+    data: Vec<ModelInfo>,
+}
+
 async fn post_messages(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -108,6 +120,41 @@ async fn post_messages(
     }
 }
 
+async fn get_models(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<ModelsResponse>, StatusCode> {
+    let auth_header = headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    let auth = state.auth_manager.auth().ok_or(StatusCode::UNAUTHORIZED)?;
+
+    match auth.get_token().await {
+        Ok(expected) if expected == token => Ok(Json(ModelsResponse {
+            data: vec![
+                ModelInfo {
+                    id: "claude-3-haiku".into(),
+                    context_length: 200_000,
+                },
+                ModelInfo {
+                    id: "claude-3-sonnet".into(),
+                    context_length: 200_000,
+                },
+                ModelInfo {
+                    id: "claude-3-opus".into(),
+                    context_length: 200_000,
+                },
+            ],
+        })),
+        _ => Err(StatusCode::UNAUTHORIZED),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let codex_home =
@@ -121,6 +168,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/v1/messages", post(post_messages))
+        .route("/v1/models", get(get_models))
+
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
@@ -145,6 +194,8 @@ mod tests {
     use axum::http::StatusCode;
     use axum::http::header::AUTHORIZATION;
     use axum::response::IntoResponse;
+    use axum::routing::get;
+
     use axum::routing::post;
     use codex_core::AuthManager;
     use codex_core::CodexAuth;
@@ -163,6 +214,7 @@ mod tests {
 
         Router::new()
             .route("/v1/messages", post(post_messages))
+            .route("/v1/models", get(super::get_models))
             .with_state(state)
     }
 
@@ -190,6 +242,39 @@ mod tests {
             axum::serve(listener, router).await.unwrap();
         });
         (url, handle)
+    }
+
+    #[tokio::test]
+    async fn models_endpoint_returns_data() {
+        let app = test_app("http://localhost:9");
+        let request = Request::builder()
+            .method("GET")
+            .uri("/v1/models")
+            .header(AUTHORIZATION, "Bearer Access Token")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let models: super::ModelsResponse = serde_json::from_slice(&bytes).unwrap();
+        assert!(!models.data.is_empty());
+        assert_eq!(models.data[0].id, "claude-3-haiku");
+    }
+
+    #[tokio::test]
+    async fn models_endpoint_unauthorized_without_token() {
+        let app = test_app("http://localhost:9");
+        let request = Request::builder()
+            .method("GET")
+            .uri("/v1/models")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]
