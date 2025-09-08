@@ -15,6 +15,7 @@ members = [
     "mcp-server",
     "mcp-types",
     "ollama",
+    "anthropic",
     "protocol",
     "protocol-ts",
     "tui",

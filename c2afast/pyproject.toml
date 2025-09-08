@@ -1,0 +1,14 @@
+[project]
+name = "c2afast"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "httpx",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
